@@ -11,6 +11,9 @@ stm32cube based firmware bootloader for mkstft28 originally, should be easy to p
 Most configuration is in boot_conf.h 
 uses spi1 and uart1 by default hard coded into main.c/spisd_diskio.c etc 
 
+add -DDEBUG to build+flags  in platformio.ini for usart /debug info,
+default usart for MKS is TXD/RXD on wifi port 
+
 
 ## Complementry software
 The firmware this is designed to work with is found here 

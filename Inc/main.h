@@ -29,43 +29,53 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
+#define SOFTWARE_VERSION "1.0"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 
-/* USER CODE END Includes */
 
-/* Exported types ------------------------------------------------------------*/
-/* USER CODE BEGIN ET */
-
-/* USER CODE END ET */
-
-/* Exported constants --------------------------------------------------------*/
-/* USER CODE BEGIN EC */
-
-/* USER CODE END EC */
-
-/* Exported macro ------------------------------------------------------------*/
-/* USER CODE BEGIN EM */
-
-/* USER CODE END EM */
-
-/* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
-/* USER CODE BEGIN EFP */
 
-/* USER CODE END EFP */
+/*
 
-/* Private defines -----------------------------------------------------------*/
-/* USER CODE BEGIN Private defines */
+experimental defines/code for app valid detect 
 
-/* USER CODE END Private defines */
 
+#define NONE 0x00
+#define APP 0x01
+#define BL 0x02
+
+#define HEAD_BASE_ADDR 0x0803F800
+#define UPDATE_HEAD_ADDR 0x0803F000
+#define APP_HEAD_ADDR 0x0803F800
+#define BL_HEAD_ADDR 0x0803FC00
+#define BANK_ADDR 	   0x0801B000
+#define BL_BASE_ADDR 	0x08000000
+#define BL_BANK_ADDR 	   0x08037000
+
+struct head{
+	uint8_t magic;
+	uint8_t type;
+	uint16_t depends;
+	uint16_t ver;
+	uint8_t time[6];
+	uint32_t len;
+	uint32_t addr;
+	uint8_t crc[150];
+	uint8_t reserve[30];
+} ;
+
+ struct head *app_head = (struct head *)APP_HEAD_ADDR ;
+ 
+ 
+ if(app_head->magic == 'W' && app_head->type == APP){
+		go_to(app_head->addr);
+		
+
+*/
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __MAIN_H */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

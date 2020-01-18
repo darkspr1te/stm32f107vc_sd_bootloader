@@ -1,35 +1,4 @@
-/**
-  ******************************************************************************
-  * File Name          : boot_conf.h
-  * Description        : This file contains firmware configuration
-  ******************************************************************************
-  *
-  * COPYRIGHT(c) 2017 Roman Stepanov
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  ******************************************************************************
-  */
+
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __BOOT_CONF_H
 #define __BOOT_CONF_H
@@ -49,11 +18,39 @@
 #define SDCARD_nCS_GPIO_Port    GPIOD
 #define FLASH_nCS_Pin           GPIO_PIN_9
 #define FLASH_nCS_GPIO_Port     GPIOB
-#define FIRMWARE_FILENAME "mks.bin"
-#define LOCATION    "0:/"
-#define FIRMWARE      LOCATION FIRMWARE_FILENAME
-extern FATFS sdFileSystem;		// 0:/
+#define FIRMWARE_FILENAME       "mks.bin"
+//Vector address to load firmware and boot 
+#define MAIN_PR_OFFSET 0x7000
+//printed via UART1 during debug builds
+#define HARDWARE                "MKS TFT 2.8 V1.4 Board"  
+
 #endif
+
+/**
+ *  if you dont want to rename firmware update file after flashing 
+ *  == Caution ==
+ *  Bootloader will write firmware to flash each boot if file not rename after update
+ *  define only for testing purpose, remove define in release builds 
+ */
+//#define DONT_RENAME
+
+
+
+//Common Defines 
+#define LOCATION                "0:/"
+#define FIRMWARE      LOCATION FIRMWARE_FILENAME
+#define OLD                     "old"
+#define RENAME_FILE        LOCATION OLD FIRMWARE_FILENAME
+extern FATFS sdFileSystem;		// 0:/
+
+
+#if !defined(MAIN_PR_OFFSET)
+#define MAIN_PR_OFFSET 0x8000
+#endif
+#if !defined(FIRMWARE)
+#define FIRMWARE                "0:/firmware.bin"
+#endif 
+
 
 typedef enum
 {
@@ -71,7 +68,7 @@ extern const uint32_t *mcuFirstPageAddr;
 
 typedef void (*Callable)();
 
-#define MAIN_PR_OFFSET 0x7000
+
 
 #endif /* __BOOT_CONF_H */
-/************************ (C) COPYRIGHT Roman Stepanov *****END OF FILE****/
+

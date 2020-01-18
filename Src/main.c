@@ -48,9 +48,6 @@ TIM_HandleTypeDef htim2;	// Buzzer
 
 char SPISD_Path[4];     /* USER logical drive path */
 
-//static void MX_SPI1_Init(void);
-//static void MX_TIM2_Init(void);
-static void ShortBeep();
 
 #elif defined(STM32F103xE)
 # include "bsp_driver_sd.h"
@@ -63,19 +60,12 @@ static void MX_SDIO_SD_Init(void);
 static inline void ShortBeep() {}
 #endif
 
+static void ShortBeep();
+static void Jump_To_App(void);
+ static uint8_t go_to(uint32_t myfunc);
+static void ErrorBeep(int count);
 FATFS sdFileSystem;		// 0:/
-/* USER CODE END PD */
 
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
 
 void osDelay(__IO uint32_t Delay)
 {
@@ -99,95 +89,97 @@ inline void moveVectorTable(uint32_t Offset)
   * @brief  The application entry point.
   * @retval int
   */
+
 int main(void)
 {
  
   HAL_Init();
-
-
   SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_FATFS_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
-
   /* Initialize interrupts */
   MX_NVIC_Init();
-  /* USER CODE BEGIN 2 */
-  #ifdef DEBUG
-  printf("\n\rBooting\n\r");
-  #endif
   MX_FATFS_Init();
-  ShortBeep();
-#ifdef DEBUG
+  /* Start System - start output*/
+
+  #ifdef DEBUG
+  printf("\n\r\n\r\n\rBooting\n\r");
+  printf("Software version: %s\r\n",SOFTWARE_VERSION);
+  printf("Board Build: \"%s\"\r\n",HARDWARE);
+  printf("Build epoch %d",LAST_BUILD_TIME);
+  #endif
+
+  ErrorBeep(1);
+  #ifdef DEBUG
   printf("Mounting Filesystem...\n\r");
-#endif
+  printf("looking for \"%s\" on sdcard\r\n",FIRMWARE);
+  #endif
+    
+  
   unsigned char result;
   result = f_mount(&sdFileSystem, SPISD_Path, 1);
 
   if (result == FR_OK)
   {
     #ifdef DEBUG
-	  printf("SUCCESS! opensd\n\r");
+	  printf("SD Card Open Success\r\n");
     #endif
   } else {
     #ifdef DEBUG
-	  printf("FATFS FAILED CODE : %d\r\n", (int)result);
+	  printf("FatFs Init Failed Code: %d\r\n", (int)result);
+    printf("is sd-card present ?");
+    //ErrorBeep(1);
     #endif
   }
+//while(1);
+  //Now we look for sdcard file and if found we write it to flash
   if (FR_OK == f_mount(&sdFileSystem, SPISD_Path, 1) && FR_OK == flash(FIRMWARE))
-  //if (FR_OK == f_mount(&sdFileSystem, SPISD_Path, 1) && FR_OK == flash("0:/mks.bin"))
   {
-      f_mount(NULL, SPISD_Path, 1);
-      ShortBeep();
-      HAL_SPI_MspDeInit(&hspi1);
-      HAL_TIM_Base_MspDeInit(&htim2);
 
-      __HAL_RCC_GPIOA_CLK_DISABLE();
-      __HAL_RCC_GPIOB_CLK_DISABLE();
-      __HAL_RCC_GPIOC_CLK_DISABLE();
-      __HAL_RCC_GPIOD_CLK_DISABLE();
-      __HAL_RCC_GPIOE_CLK_DISABLE();
-
-      HAL_DeInit();
-
-      // Disabling SysTick interrupt
-      SysTick->CTRL = 0;
-      moveVectorTable(MAIN_PR_OFFSET);
-      // Setting initial value to stack pointer
-      __set_MSP(*mcuFirstPageAddr);
-      // booting really
-
-      Callable resetHandler = (Callable) (*(mcuFirstPageAddr + 1) );
-      resetHandler();
+     // int ress = f_rename(FIRMWARE,RENAME_FILE);
+     #ifdef DEBUG
+     #ifndef DONT_RENAME
+      if (FR_OK !=f_rename(FIRMWARE,RENAME_FILE))
+      {
+        printf("rename error");
+        printf("old File name %s\r\n",FIRMWARE);
+        printf("new File name %s\r\n",RENAME_FILE);       
+      }
+      else
+      {
+        printf("old File name %s\r\n",FIRMWARE);
+        printf("new File name %s\r\n",RENAME_FILE); 
+      }
+      #endif
+      #endif
+      //We flashed a new firmware app now lets jump to it's vectors at addres stored in MAIN_PR_OFFSET(boot_conf.h)
+      ErrorBeep(3);
+     Jump_To_App();
   }
- 
-  /* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+  
   while (1)
   {
-    ShortBeep();
+    
+    //Assume theres a app there to boot too
+    Jump_To_App();
     
     #ifdef DEBUG
     printf("app failed to boot at %#010x\n\r",MAIN_PR_OFFSET);
     printf("we should not be here!\n\r");
     printf("no app to boot too!\n\r");
     #endif
+    ErrorBeep(5);
     HAL_Delay(5000);
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
+    
   }
-  /* USER CODE END 3 */
+ 
+
+ //End of main, we should not get to this point 
 }
 
 /**
@@ -236,6 +228,50 @@ void SystemClock_Config(void)
   * @brief NVIC Configuration.
   * @retval None
   */
+ static uint8_t go_to(uint32_t myfunc)
+{
+	uint8_t ret = 0;
+	void(*ptr)(void);
+	if((*(volatile uint32_t *)myfunc & 0x2ffe0000) == 0x20000000)
+	{
+
+		__set_MSP((*(volatile uint32_t *)myfunc));
+		ptr = (void(*)(void))(*(__IO uint32_t*)(myfunc+4));
+
+		ptr();
+	}
+	return ret;      
+}
+/**
+ * We shutdown system ready to load vector table for app and jump to start address
+ * 
+ */
+
+ void Jump_To_App(void)
+ {
+      f_mount(NULL, SPISD_Path, 1);
+      HAL_SPI_MspDeInit(&hspi1);
+      HAL_TIM_Base_MspDeInit(&htim2);
+
+      __HAL_RCC_GPIOA_CLK_DISABLE();
+      __HAL_RCC_GPIOB_CLK_DISABLE();
+      __HAL_RCC_GPIOC_CLK_DISABLE();
+      __HAL_RCC_GPIOD_CLK_DISABLE();
+      __HAL_RCC_GPIOE_CLK_DISABLE();
+
+      HAL_DeInit();
+
+      // Disabling SysTick interrupt
+      SysTick->CTRL = 0;
+      moveVectorTable(MAIN_PR_OFFSET);
+      // Setting initial value to stack pointer
+      __set_MSP(*mcuFirstPageAddr);
+      // booting really
+
+      Callable resetHandler = (Callable) (*(mcuFirstPageAddr + 1) );
+      resetHandler();
+ }
+ 
 static void MX_NVIC_Init(void)
 {
   /* USART1_IRQn interrupt configuration */
@@ -246,14 +282,30 @@ static void MX_NVIC_Init(void)
   HAL_NVIC_EnableIRQ(SPI1_IRQn);
 }
 
-/* USER CODE BEGIN 4 */
+//old replaced by ErrorBeep(count)
 void ShortBeep()
 {
 	HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3);
 	HAL_Delay(40);
 	HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_3);
 }
-/* USER CODE END 4 */
+
+/**
+ * Error beeps, 1=OK, 3=Flashing complete,5=Boot error
+ * 
+ */
+
+static void ErrorBeep(int count)
+{
+for (int i=0;i<count;i++)
+{
+	HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3);
+	HAL_Delay(30);
+	HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_3);
+  HAL_Delay(150);
+      
+  }
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
@@ -284,4 +336,4 @@ void assert_failed(uint8_t *file, uint32_t line)
 }
 #endif /* USE_FULL_ASSERT */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

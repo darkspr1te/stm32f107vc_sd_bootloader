@@ -127,7 +127,7 @@ if (res == FR_OK)
 	f_close(&fil);
 	HAL_FLASH_Lock();
 #ifdef DEBUG
-	  printf("end of flash routine\n\r");
+	  printf("flash write complete \r\n");
 #endif
 	return FR_OK;
 }
