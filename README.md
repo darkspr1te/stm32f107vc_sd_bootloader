@@ -12,6 +12,9 @@ Most configuration is in boot_conf.h
 uses spi1 and uart1 by default hard coded into main.c/spisd_diskio.c etc 
 
 
+## Complementry software
+The firmware this is designed to work with is found here 
+https://github.com/darkspr1te/MKSTFT_Marlin_Touch
 
 ## With Thanks to
 
